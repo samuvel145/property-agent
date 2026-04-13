@@ -5,7 +5,7 @@ import PropertyCard from './PropertyCard';
 interface MessageBubbleProps {
   role: 'bot' | 'user';
   text: string;
-  cards?: any[];
+  cards?: Array<Record<string, unknown>>;
 }
 
 export default function MessageBubble({ role, text, cards }: MessageBubbleProps) {
