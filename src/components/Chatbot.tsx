@@ -18,6 +18,8 @@ interface ConvState {
   location?: string;
   propertyType?: string;
   config?: string;
+  allProperties?: any[];
+  resultsPage?: number;
 }
 
 export default function Chatbot() {
@@ -55,7 +57,7 @@ export default function Chatbot() {
       },
     ]);
     setQuickReplies(['Buy a Home', 'Rent a Property', 'Commercial Space', 'Just Exploring']);
-    setConvState({ step: 'GREETING' });
+    setConvState({ step: 'GREETING', allProperties: [], resultsPage: 0 });
   };
 
   // Phase 2 Logic: Rule-Based Guided Flow
@@ -118,8 +120,64 @@ export default function Chatbot() {
 
     // Step 10: Retry flows
     if (convState.step === 'RESULTS') {
+      if (reply === 'View More') {
+        const nextPage = (convState.resultsPage || 0) + 1;
+        const start = nextPage * 5;
+        const end = start + 5;
+        const nextSlice = (convState.allProperties || []).slice(start, end);
+        
+        if (nextSlice.length > 0) {
+          setConvState({ ...convState, resultsPage: nextPage });
+          const propertyCards = nextSlice.map((prop: any, index: number) => {
+            let price = 'Price on request';
+            if (prop.configs?.[0]?.FinalPrice) {
+              price = `₹${(prop.configs[0].FinalPrice / 100000).toFixed(1)}L`;
+            }
+            let area = prop.configs?.[0]?.Super_Built_Up_Area || 'Area on request';
+            let developer = prop.developer?.[0]?.Connection_Name || 'Premium Developer';
+            let title = prop.Project_Name_Original || `Property ${start + index + 1}`;
+            let location = prop.Location || 'Prime Location';
+            let city = prop.City || convState.city || 'City';
+            let image = prop.files?.[0]?.Project_File_Path || '/property-placeholder.jpg';
+
+            return {
+              id: prop.id || `prop-${start + index}`,
+              title,
+              location: `${location}, ${city}`,
+              price,
+              type: prop.Project_Type || 'Apartment',
+              area,
+              status: prop.State_Of_Construction || 'Available',
+              image,
+              developer,
+              rera: prop.RERA_No || 'RERA Registered',
+            };
+          });
+
+          addBotMessage(`Showing results ${start + 1} to ${Math.min(end, convState.allProperties?.length || 0)} of ${convState.allProperties?.length || 0}:`, propertyCards);
+          
+          const hasMore = (convState.allProperties?.length || 0) > end;
+          setQuickReplies(hasMore ? ['View More', 'Search Again', 'Contact Agent'] : ['Search Again', 'Contact Agent']);
+        } else {
+          addBotMessage("No more properties to show for this search.");
+          setQuickReplies(['Search Again', 'Contact Agent']);
+        }
+        return;
+      }
+
+      if (reply === 'Search Again') {
+        startWelcomeFlow();
+        return;
+      }
+
+      if (reply === 'Contact Agent') {
+        addBotMessage("You can reach our help desk at +91 000 000 0000 or email support@jll-india.com. Would you like to check more properties or start a new search?");
+        setQuickReplies(['View More', 'Search Again']);
+        return;
+      }
+
       if (reply === 'Try Different Area') {
-        setConvState({ ...convState, step: 'LOCATION', location: undefined });
+        setConvState({ ...convState, step: 'LOCATION', location: undefined, allProperties: [], resultsPage: 0 });
         setIsTyping(true);
         try {
           const res = await fetch(`/api/properties?action=getLocations&city=${encodeURIComponent(convState.city || '')}`);
@@ -135,13 +193,21 @@ export default function Chatbot() {
         return;
       }
       if (reply === 'Try Different Type') {
-        setConvState({ ...convState, step: 'PROPERTY_TYPE', propertyType: undefined });
+        setConvState({ ...convState, step: 'PROPERTY_TYPE', propertyType: undefined, allProperties: [], resultsPage: 0 });
         addBotMessage("What type of property?");
         setQuickReplies(["Apartments", "Villas", "Villaments", "Commercial"]);
         return;
       }
       if (reply.startsWith('Search All of')) {
-        const resetState = { ...convState, step: 'RESULTS' as const, location: undefined, propertyType: undefined, config: undefined };
+        const resetState = { 
+          ...convState, 
+          step: 'RESULTS' as const, 
+          location: undefined, 
+          propertyType: undefined, 
+          config: undefined,
+          allProperties: [],
+          resultsPage: 0
+        };
         setConvState(resetState);
         await executeSearch(resetState);
         return;
@@ -216,6 +282,11 @@ export default function Chatbot() {
         });
 
         addBotMessage("Here are the top matches:", propertyCards);
+        
+        // Navigation buttons after AI results
+        const hasMore = (data.data?.length || 0) > 5;
+        setConvState(prev => ({ ...prev, step: 'RESULTS', allProperties: data.data, resultsPage: 0 }));
+        setQuickReplies(hasMore ? ['View More', 'Search Again', 'Contact Agent'] : ['Search Again', 'Contact Agent']);
       }
 
     } catch (error) {
@@ -288,6 +359,11 @@ export default function Chatbot() {
       });
 
       addBotMessage("Top matches:", propertyCards);
+
+      // Navigation buttons after rule-based results
+      const hasMore = (properties.length || 0) > 5;
+      setConvState(prev => ({ ...prev, allProperties: properties, resultsPage: 0 }));
+      setQuickReplies(hasMore ? ['View More', 'Search Again', 'Contact Agent'] : ['Search Again', 'Contact Agent']);
     } catch (error) {
       setIsTyping(false);
       addBotMessage("Oops! I had trouble fetching properties. Please try again.");
