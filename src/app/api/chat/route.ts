@@ -63,6 +63,15 @@ User: "What's the weather today?"
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      return Response.json({
+        message: "SYSTEM ERROR: The GROQ_API_KEY environment variable is missing. You need to add 'GROQ_API_KEY' in your Vercel Project Settings > Environment Variables, and then redeploy.",
+        action: 'none',
+        search_params: {},
+        quick_replies: []
+      });
+    }
+
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const { messages } = await request.json();
 
