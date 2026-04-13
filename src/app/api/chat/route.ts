@@ -1,9 +1,5 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
-
 const SYSTEM_PROMPT = `You are a professional and friendly real estate assistant for JLL (Jones Lang LaSalle), one of India's largest property platforms with access to 40,000+ premium properties across India's top cities.
 
 PERSONALITY:
@@ -67,6 +63,7 @@ User: "What's the weather today?"
 
 export async function POST(request: Request) {
   try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const { messages } = await request.json();
 
     // Build conversation for Groq
