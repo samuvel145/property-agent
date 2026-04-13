@@ -1,11 +1,11 @@
 'use client';
 
 interface PropertyCardProps {
-  project: any;
+  project: Record<string, unknown>;
 }
 
 export default function PropertyCard({ project }: PropertyCardProps) {
-  const formatPrice = (price: any) => {
+  const formatPrice = (price: unknown) => {
     if (!price || price === 'Price on request') return 'Price on request';
     if (typeof price === 'string' && price.includes('₹')) return price;
     if (typeof price === 'number') {
@@ -35,14 +35,49 @@ export default function PropertyCard({ project }: PropertyCardProps) {
   };
 
   // Handle both API format and simplified card format
-  const title = project.title || project.Project_Name_Original || project.Project_Name || 'Property';
-  const developer = project.developer || project.developer?.[0]?.Connection_Name || 'Premium Developer';
-  const location = project.location || `${project.Location || ''}, ${project.City || ''}`;
-  const price = project.price || project.configs?.[0]?.FinalPrice || 0;
-  const area = project.area || project.configs?.[0]?.Super_Built_Up_Area || 'Area on request';
-  const status = project.status || project.State_Of_Construction || 'Available';
-  const imageUrl = project.image || project.files?.find((f: any) => f.Project_File_Type === 'EXT')?.Project_File_Path;
-  const type = project.type || project.Project_Type || 'Apartment';
+  const title =
+    (typeof project.title === 'string' && project.title) ||
+    (typeof project.Project_Name_Original === 'string' && project.Project_Name_Original) ||
+    (typeof project.Project_Name === 'string' && project.Project_Name) ||
+    'Property';
+  const developerList = Array.isArray(project.developer) ? project.developer : [];
+  const firstDeveloper = (developerList[0] as Record<string, unknown> | undefined) ?? {};
+  const developer =
+    (typeof project.developer === 'string' && project.developer) ||
+    (typeof firstDeveloper.Connection_Name === 'string' && firstDeveloper.Connection_Name) ||
+    (typeof firstDeveloper.name === 'string' && firstDeveloper.name) ||
+    (typeof project.Developer === 'string' && project.Developer) ||
+    (typeof project.developer_name === 'string' && project.developer_name) ||
+    'Premium Developer';
+  const location =
+    (typeof project.location === 'string' && project.location) ||
+    [project.Location, project.City]
+      .filter((item): item is string => typeof item === 'string' && item.length > 0)
+      .join(', ') ||
+    'Prime Location';
+  const configs = Array.isArray(project.configs) ? project.configs : [];
+  const firstConfig = (configs[0] as Record<string, unknown> | undefined) ?? {};
+  const price = project.price ?? firstConfig.FinalPrice ?? 0;
+  const area =
+    (typeof project.area === 'string' && project.area) ||
+    (typeof firstConfig.Super_Built_Up_Area === 'string' && firstConfig.Super_Built_Up_Area) ||
+    'Area on request';
+  const status =
+    (typeof project.status === 'string' && project.status) ||
+    (typeof project.State_Of_Construction === 'string' && project.State_Of_Construction) ||
+    'Available';
+  const files = Array.isArray(project.files) ? project.files : [];
+  const externalImageFile = files.find((f): f is Record<string, unknown> => {
+    return typeof f === 'object' && f !== null && (f as Record<string, unknown>).Project_File_Type === 'EXT';
+  });
+  const imageUrl =
+    (typeof project.image === 'string' && project.image) ||
+    (typeof externalImageFile?.Project_File_Path === 'string' && externalImageFile.Project_File_Path) ||
+    undefined;
+  const type =
+    (typeof project.type === 'string' && project.type) ||
+    (typeof project.Project_Type === 'string' && project.Project_Type) ||
+    'Apartment';
 
   return (
     <div className="w-60 bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow flex-shrink-0">
