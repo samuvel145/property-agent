@@ -130,7 +130,10 @@ export default function Chatbot() {
     property_type?: string;
     config?: string;
     intent?: string;
+    budget?: string;
+    page?: number;
   }) => {
+    const pageNum = params.page || 1;
     const searchMessageId = generateUniqueId();
     const locationLabel = params.location && params.location !== 'null' 
       ? `${params.location}, ${params.city}` 
@@ -140,7 +143,9 @@ export default function Chatbot() {
     const searchMessage: Message = {
       id: searchMessageId,
       role: 'bot',
-      text: `🔍 Searching properties in ${locationLabel}...`,
+      text: pageNum > 1 
+        ? `🔄 Loading more properties in ${locationLabel}...`
+        : `🔍 Searching properties in ${locationLabel}...`,
     };
     setMessages(prev => [...prev, searchMessage]);
 
@@ -181,16 +186,25 @@ export default function Chatbot() {
       }
 
       // Update search message with results count
+      const startIdx = (pageNum - 1) * 5;
+      const endIdx = startIdx + 5;
+      const totalAvailable = properties.length;
+
       setMessages(prev =>
         prev.map(msg =>
           msg.id === searchMessageId
-            ? { ...msg, text: `✅ Found ${properties.length} properties in ${locationLabel}! Here are the top picks:` }
+            ? { 
+                ...msg, 
+                text: pageNum > 1 
+                  ? `✅ Showing more matches in ${locationLabel} (Results ${startIdx + 1} to ${Math.min(endIdx, totalAvailable)} of ${totalAvailable}):`
+                  : `✅ Found ${totalAvailable} properties in ${locationLabel}! Here are the top picks:` 
+              }
             : msg
         )
       );
 
       // Build property cards
-      const propertyCards = properties.slice(0, 5).map((prop: any, index: number) => {
+      const propertyCards = properties.slice(startIdx, endIdx).map((prop: any, index: number) => {
         let price = 'Price on request';
         if (prop.configs && prop.configs[0]) {
           const finalPrice = prop.configs[0].FinalPrice || prop.configs[0].Price || prop.configs[0].price;
