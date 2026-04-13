@@ -67,34 +67,42 @@ User: "What's the weather today?"
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.GROQ_API_KEY) {
-      return Response.json({
-        message: "SYSTEM ERROR: The GROQ_API_KEY environment variable is missing. You need to add 'GROQ_API_KEY' in your Vercel Project Settings > Environment Variables, and then redeploy.",
-        action: 'none',
-        search_params: {},
-        quick_replies: []
-      });
-    }
-
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const { messages } = await request.json();
 
-    // Build conversation for Groq
-    const groqMessages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT },
-      ...messages.map((msg: { role: string; text: string }) => ({
-        role: msg.role === 'bot' ? ('assistant' as const) : ('user' as const),
-        content: msg.text,
-      })),
-    ];
+    const getCompletion = async (apiKey: string) => {
+      const groq = new Groq({ apiKey });
+      const groqMessages = [
+        { role: 'system' as const, content: SYSTEM_PROMPT },
+        ...messages.map((msg: { role: string; text: string }) => ({
+          role: msg.role === 'bot' ? ('assistant' as const) : ('user' as const),
+          content: msg.text,
+        })),
+      ];
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: groqMessages,
-      temperature: 0.7,
-      max_tokens: 1024,
-      response_format: { type: 'json_object' },
-    });
+      return await groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: groqMessages,
+        temperature: 0.7,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' },
+      });
+    };
+
+    let completion;
+    try {
+      if (!process.env.GROQ_API_KEY) throw new Error('Missing primary API key');
+      completion = await getCompletion(process.env.GROQ_API_KEY);
+    } catch (primaryError: any) {
+      console.error('Primary Groq key failed:', primaryError.message);
+      
+      // Try fallback if primary fails and fallback exists
+      if (process.env.GROQ_API_KEY_FALLBACK) {
+        console.log('Attempting fallback Groq key...');
+        completion = await getCompletion(process.env.GROQ_API_KEY_FALLBACK);
+      } else {
+        throw primaryError; // No fallback available, rethrow primary error
+      }
+    }
 
     const responseText = completion.choices[0]?.message?.content || '';
     
