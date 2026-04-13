@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     
     // Return a helpful fallback instead of an error
     return Response.json({
-      message: "I'm having a brief connection issue, but I'm still here! Could you repeat your question? I'd love to help you with your property search.",
+      message: `I'm having a brief connection issue (${error.message || 'Unknown error'}), but I'm still here! Could you repeat your question? I'd love to help you with your property search.`,
       action: 'none',
       search_params: {},
       quick_replies: ['Buy a Home', 'Rent a Property', 'Ask a Question'],
